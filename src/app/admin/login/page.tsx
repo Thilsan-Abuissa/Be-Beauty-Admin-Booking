@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import styles from "../admin.module.css";
 
@@ -30,22 +31,27 @@ export default function LoginPage() {
 
   return (
     <main className={styles.loginWrap}>
-      <form className={styles.loginCard} onSubmit={submit}>
-        <h1>Be Beauty</h1>
-        <p>Admin sign in</p>
-        <input
-          type="password"
-          placeholder="Password"
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          autoFocus
-          required
-        />
-        {error && <div className={styles.error}>{error}</div>}
-        <button className="btn btn-primary" disabled={loading} style={{ width: "100%" }}>
-          {loading ? "Signing in…" : "Sign in"}
-        </button>
-      </form>
+      <div className={styles.loginCard}>
+        <div className={styles.loginTop}>
+          <Image src="/logo.png" alt="Be Beauty" width={360} height={270} priority />
+        </div>
+        <form className={styles.loginForm} onSubmit={submit}>
+          <h1>Welcome back</h1>
+          <p>Sign in to see your bookings</p>
+          <input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoFocus
+            required
+          />
+          {error && <div className={styles.error}>{error}</div>}
+          <button className="btn btn-primary" disabled={loading}>
+            {loading ? "Signing in…" : "Sign in"}
+          </button>
+        </form>
+      </div>
     </main>
   );
 }
