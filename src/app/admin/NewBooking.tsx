@@ -50,6 +50,26 @@ function dateLabel(iso: string) {
   return new Date(`${iso}T00:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
 }
 
+// The salon's clock (Qatar), so "today" is right even if this device's timezone isn't.
+// Matches the default SALON_TIMEZONE in src/lib/dates.ts.
+function salonNow() {
+  const p: Record<string, string> = {};
+  new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Qatar",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  })
+    .formatToParts(new Date())
+    .forEach((x) => (p[x.type] = x.value));
+  return { date: `${p.year}-${p.month}-${p.day}`, minutes: Number(p.hour) * 60 + Number(p.minute) };
+}
+
+const SLOT_MIN = 30;
+
 function upcomingDays() {
   const today = new Date();
   return Array.from({ length: DAYS_SHOWN }, (_, i) => {
@@ -85,9 +105,23 @@ export default function NewBooking({ draft, colors, onClose, onSaved }: Props) {
   const [saving, setSaving] = useState(false);
 
   const [days] = useState(upcomingDays);
+  const [now, setNow] = useState(salonNow);
+
+  // A slot is gone once it has ended, so a walk-in can still be added for the current half hour.
+  const isPast = (day: string, t: string) => day === now.date && toMinutes(t) + SLOT_MIN <= now.minutes;
+  const hasTimesLeft = (day: string) => TIME_GROUPS.some((g) => g.times.some((t) => !isPast(day, t)));
+  const timeGroups = TIME_GROUPS.map((g) => ({ ...g, times: g.times.filter((t) => !isPast(date, t)) })).filter(
+    (g) => g.times.length,
+  );
+  const chosenTime = time && !isPast(date, time) ? time : null;
   const otherDate = !days.some((d) => d.iso === date);
   const picked = SERVICES[service];
   const takenTimes = stylist === "No preference" ? [] : (taken[stylist] ?? []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(salonNow()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
@@ -110,7 +144,7 @@ export default function NewBooking({ draft, colors, onClose, onSaved }: Props) {
   async function submit(e: FormEvent) {
     e.preventDefault();
     if (!service) return setError("Please choose a treatment.");
-    if (!time) return setError("Please choose a time.");
+    if (!chosenTime) return setError("Please choose a time.");
     setError("");
     setSaving(true);
     try {
@@ -123,7 +157,7 @@ export default function NewBooking({ draft, colors, onClose, onSaved }: Props) {
           service,
           stylist,
           date,
-          time,
+          time: chosenTime,
           notes,
           status: confirmed ? "confirmed" : "pending",
         }),
@@ -224,6 +258,8 @@ export default function NewBooking({ draft, colors, onClose, onSaved }: Props) {
                   key={d.iso}
                   type="button"
                   className={`${styles.dayChip} ${date === d.iso ? styles.dayChipOn : ""}`}
+                  disabled={!hasTimesLeft(d.iso)}
+                  title={hasTimesLeft(d.iso) ? undefined : "No times left today"}
                   onClick={() => setDate(d.iso)}
                 >
                   <span className={styles.dayChipDow}>{d.dow}</span>
@@ -243,7 +279,8 @@ export default function NewBooking({ draft, colors, onClose, onSaved }: Props) {
           <section className={styles.step}>
             <h3>Time</h3>
             <div className={styles.timeGroups}>
-              {TIME_GROUPS.map((g) => (
+              {!timeGroups.length && <p className={styles.noTimes}>No times left today. Please pick another day.</p>}
+              {timeGroups.map((g) => (
                 <div key={g.name}>
                   <div className={styles.timeGroupName}>{g.name}</div>
                   <div className={styles.timeGrid}>
@@ -255,7 +292,7 @@ export default function NewBooking({ draft, colors, onClose, onSaved }: Props) {
                           type="button"
                           disabled={busy}
                           title={busy ? `${stylist} is booked` : undefined}
-                          className={`${styles.timeChip} ${time === t ? styles.timeChipOn : ""}`}
+                          className={`${styles.timeChip} ${chosenTime === t ? styles.timeChipOn : ""}`}
                           onClick={() => setTime(t)}
                         >
                           {timeLabel(t)}
@@ -306,7 +343,9 @@ export default function NewBooking({ draft, colors, onClose, onSaved }: Props) {
                   <strong>{service}</strong>
                   <span>
                     {dateLabel(date)}
-                    {time && ` · ${timeLabel(time)}–${timeLabel(toHHMM(toMinutes(time) + picked.minutes))}`} · {stylist}
+                    {chosenTime &&
+                      ` · ${timeLabel(chosenTime)}–${timeLabel(toHHMM(toMinutes(chosenTime) + picked.minutes))}`}{" "}
+                    · {stylist}
                   </span>
                 </>
               ) : (
