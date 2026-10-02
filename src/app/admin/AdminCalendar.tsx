@@ -9,7 +9,6 @@ import listPlugin from "@fullcalendar/list";
 import interactionPlugin from "@fullcalendar/interaction";
 import type { EventClickArg, EventDropArg, EventInput, EventSourceFuncArg } from "@fullcalendar/core";
 import type { Booking, BookingStatus } from "@/lib/db";
-import { whatsappNumber } from "@/lib/phone";
 import styles from "./admin.module.css";
 
 const STYLIST_COLORS: Record<string, string> = {
@@ -59,30 +58,6 @@ function formatDate(iso: string) {
     month: "long",
     year: "numeric",
   });
-}
-
-function shortDate(iso: string) {
-  return new Date(`${iso}T00:00:00`).toLocaleDateString("en-GB", {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-  });
-}
-
-function customerMessage(b: Booking) {
-  const when = `${shortDate(b.booking_date)} at ${formatTime(b.booking_time)}`;
-  const withStylist = b.stylist === "No preference" ? "" : ` with ${b.stylist}`;
-  if (b.status === "cancelled") {
-    return `Hi ${b.customer_name}, your ${b.service} appointment on ${when} has been cancelled. Reply here if you'd like to book another time. – Be Beauty`;
-  }
-  if (b.status === "confirmed") {
-    return `Hi ${b.customer_name}, your ${b.service}${withStylist} on ${when} is confirmed. See you then! – Be Beauty`;
-  }
-  return `Hi ${b.customer_name}, this is Be Beauty about your ${b.service} booking on ${when}.`;
-}
-
-function whatsappLink(b: Booking) {
-  return `https://wa.me/${whatsappNumber(b.customer_phone)}?text=${encodeURIComponent(customerMessage(b))}`;
 }
 
 function toEvent(b: Booking): EventInput {
@@ -190,8 +165,8 @@ export default function AdminCalendar({ stylists }: { stylists: string[] }) {
     }
   }
 
-  async function update(changes: Partial<Booking>): Promise<Booking | null> {
-    if (!selected) return null;
+  async function update(changes: Partial<Booking>) {
+    if (!selected) return;
     setBusy(true);
     try {
       const { booking } = await api<{ booking: Booking }>(`/api/bookings/${selected.id}`, {
@@ -201,23 +176,11 @@ export default function AdminCalendar({ stylists }: { stylists: string[] }) {
       setSelected(booking);
       showToast("Saved");
       refetch();
-      return booking;
     } catch (err) {
       showToast((err as Error).message);
-      return null;
     } finally {
       setBusy(false);
     }
-  }
-
-  // Opens WhatsApp with the confirmation already written, so the customer hears back.
-  // The tab is opened before saving because browsers block pop-ups opened after an await.
-  async function confirmAndMessage() {
-    const tab = window.open("", "_blank");
-    const booking = await update({ status: "confirmed" });
-    if (!tab) return; // Pop-up blocked: the WhatsApp link in the drawer has the same message.
-    if (booking) tab.location.href = whatsappLink(booking);
-    else tab.close();
   }
 
   async function remove() {
@@ -318,7 +281,7 @@ export default function AdminCalendar({ stylists }: { stylists: string[] }) {
             <a className={styles.phone} href={`tel:${selected.customer_phone}`}>{selected.customer_phone}</a>
             <a
               className={styles.whatsapp}
-              href={whatsappLink(selected)}
+              href={`https://wa.me/${selected.customer_phone.replace(/\D/g, "")}`}
               target="_blank"
               rel="noreferrer"
             >
@@ -354,8 +317,8 @@ export default function AdminCalendar({ stylists }: { stylists: string[] }) {
 
             <div className={styles.actions}>
               {selected.status !== "confirmed" && selected.status !== "completed" && (
-                <button className="btn btn-primary" disabled={busy} onClick={confirmAndMessage}>
-                  Confirm &amp; WhatsApp
+                <button className="btn btn-primary" disabled={busy} onClick={() => update({ status: "confirmed" })}>
+                  Confirm
                 </button>
               )}
               {selected.status === "confirmed" && (
@@ -374,10 +337,7 @@ export default function AdminCalendar({ stylists }: { stylists: string[] }) {
               )}
               <button className="btn btn-danger" disabled={busy} onClick={remove}>Delete</button>
             </div>
-            <p className={styles.hint}>
-              The WhatsApp link above always has a message ready for the booking&apos;s current status.
-              Tip: drag a booking on the calendar to reschedule it.
-            </p>
+            <p className={styles.hint}>Tip: drag a booking on the calendar to reschedule it.</p>
           </aside>
         </div>
       )}

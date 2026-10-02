@@ -3,7 +3,6 @@ import { isAdmin } from "@/lib/auth";
 import { BOOKING_WINDOW_DAYS, SERVICES, STYLISTS, TIME_SLOTS } from "@/lib/catalog";
 import { addDays, salonToday } from "@/lib/dates";
 import { DATE_RE, isUniqueViolation, json, unauthorized } from "@/lib/http";
-import { normalizePhone } from "@/lib/phone";
 
 // Public: the booking page posts here.
 export async function POST(request: Request) {
@@ -15,7 +14,7 @@ export async function POST(request: Request) {
   const date = String(body.date ?? "");
   const time = String(body.time ?? "");
   const name = String(body.name ?? "").trim();
-  const phone = normalizePhone(String(body.phone ?? ""));
+  const phone = String(body.phone ?? "").trim();
 
   const catalogEntry = SERVICES[service];
   if (!catalogEntry) return json({ error: "Please choose a treatment." }, 400);
@@ -27,7 +26,7 @@ export async function POST(request: Request) {
     return json({ error: "Please choose a valid date." }, 400);
   }
   if (name.length < 2 || name.length > 80) return json({ error: "Please enter your full name." }, 400);
-  if (!phone) return json({ error: "Please enter your 8-digit mobile number." }, 400);
+  if (!/^\+?[\d\s-]{7,20}$/.test(phone)) return json({ error: "Please enter a valid mobile number." }, 400);
 
   try {
     const rows = await db()`

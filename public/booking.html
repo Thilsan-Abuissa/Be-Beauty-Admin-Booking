@@ -578,7 +578,7 @@
           <div class="p-block p-fields">
             <span class="p-label">Your details</span>
             <input type="text" placeholder="Full name" id="fName">
-            <input type="tel" inputmode="tel" placeholder="WhatsApp number, e.g. 5555 1234" id="fPhone">
+            <input type="tel" placeholder="Mobile number" id="fPhone">
           </div>
 
           <div class="p-total">
@@ -587,7 +587,7 @@
           </div>
           <div class="p-error" id="pError" role="alert"></div>
           <button class="btn btn-primary" id="confirmBtn" style="margin-top:18px;">Confirm Appointment</button>
-          <p class="p-note">No payment now — we confirm on WhatsApp within the hour.</p>
+          <p class="p-note">No payment now — we confirm by phone within the hour.</p>
         </div>
 
         <div class="confirm-state" id="confirmState">
@@ -848,14 +848,6 @@
     errorEl.style.display = msg ? 'block' : 'none';
   }
 
-  // Same rule as src/lib/phone.ts: local 8-digit numbers get the Qatar code 974.
-  function normalizePhone(input){
-    let digits = input.replace(/\D/g, '');
-    if(digits.startsWith('00')) digits = digits.slice(2);
-    if(digits.length === 8) digits = '974' + digits;
-    return digits.length >= 10 && digits.length <= 15 ? '+' + digits : null;
-  }
-
   const confirmBtn = document.getElementById('confirmBtn');
   confirmBtn.addEventListener('click', async ()=>{
     const name = document.getElementById('fName').value.trim();
@@ -865,7 +857,7 @@
       return;
     }
     if(name.length < 2){ showError('Please enter your full name.'); return; }
-    if(!normalizePhone(phone)){ showError('Please enter your 8-digit mobile number.'); return; }
+    if(!/^\+?[\d\s-]{7,20}$/.test(phone)){ showError('Please enter a valid mobile number.'); return; }
 
     showError('');
     confirmBtn.disabled = true;
@@ -890,7 +882,7 @@
       }
       document.getElementById('confirmSummary').textContent =
         state.service + ' · ' + state.day + ' at ' + state.time +
-        '. We will message ' + normalizePhone(phone) + ' on WhatsApp to confirm. We can\'t wait to see you at Be Beauty.';
+        '. We will call ' + phone + ' to confirm. We can\'t wait to see you at Be Beauty.';
       document.getElementById('panelBody').style.display = 'none';
       document.getElementById('confirmState').style.display = 'block';
     }catch(e){
