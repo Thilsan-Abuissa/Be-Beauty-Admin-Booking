@@ -38,6 +38,29 @@ const STATUS_LABELS: Record<BookingStatus, string> = {
 };
 
 const REFRESH_MS = 60_000;
+
+type StatsPeriod = "today" | "week" | "month" | "all";
+const PERIODS: { id: StatsPeriod; label: string; hint: string }[] = [
+  { id: "today", label: "Today", hint: "today" },
+  { id: "week", label: "This week", hint: "this week" },
+  { id: "month", label: "This month", hint: "this month" },
+  { id: "all", label: "All", hint: "all time" },
+];
+
+// [start, end) dates for the summary cards. Weeks start on Saturday, like the calendar.
+function periodRange(period: StatsPeriod) {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const d = now.getDate();
+  if (period === "today") return [new Date(y, m, d), new Date(y, m, d + 1)];
+  if (period === "week") {
+    const start = d - ((now.getDay() + 1) % 7);
+    return [new Date(y, m, start), new Date(y, m, start + 7)];
+  }
+  if (period === "month") return [new Date(y, m, 1), new Date(y, m + 1, 1)];
+  return [new Date(2000, 0, 1), new Date(2100, 0, 1)];
+}
 const MOBILE_QUERY = "(max-width: 720px)";
 
 function subscribeMobile(onChange: () => void) {
@@ -228,7 +251,9 @@ export default function AdminCalendar({ stylists }: { stylists: string[] }) {
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [toast, setToast] = useState("");
-  const [shown, setShown] = useState<Booking[]>([]);
+  const [statsPeriod, setStatsPeriod] = useState<StatsPeriod>("today");
+  const [statsBookings, setStatsBookings] = useState<Booking[]>([]);
+  const [statsTick, setStatsTick] = useState(0);
   const [period, setPeriod] = useState("");
   const [draft, setDraft] = useState<NewBookingDraft | null>(null);
   const isMobile = useSyncExternalStore(
@@ -237,7 +262,11 @@ export default function AdminCalendar({ stylists }: { stylists: string[] }) {
     () => false,
   );
 
-  const refetch = useCallback(() => calendarRef.current?.getApi().refetchEvents(), []);
+  const refetchCalendar = useCallback(() => calendarRef.current?.getApi().refetchEvents(), []);
+  const refetch = useCallback(() => {
+    refetchCalendar();
+    setStatsTick((t) => t + 1);
+  }, [refetchCalendar]);
 
   const showToast = useCallback((message: string) => {
     setToast(message);
@@ -257,8 +286,21 @@ export default function AdminCalendar({ stylists }: { stylists: string[] }) {
 
   useEffect(() => {
     hiddenRef.current = hidden;
-    refetch();
-  }, [hidden, refetch]);
+    refetchCalendar();
+  }, [hidden, refetchCalendar]);
+
+  // The summary cards have their own period, separate from what the calendar is showing.
+  useEffect(() => {
+    let current = true;
+    const [start, end] = periodRange(statsPeriod);
+    const params = new URLSearchParams({ start: localDate(start), end: localDate(end) });
+    api<{ bookings: Booking[] }>(`/api/bookings?${params}`)
+      .then(({ bookings }) => current && setStatsBookings(bookings))
+      .catch(() => {});
+    return () => {
+      current = false;
+    };
+  }, [statsPeriod, statsTick]);
 
   const loadEvents = useCallback(
     async (info: EventSourceFuncArg, success: (events: EventInput[]) => void, failure: (err: Error) => void) => {
@@ -266,7 +308,6 @@ export default function AdminCalendar({ stylists }: { stylists: string[] }) {
         const params = new URLSearchParams({ start: localDate(info.start), end: localDate(info.end) });
         const { bookings } = await api<{ bookings: Booking[] }>(`/api/bookings?${params}`);
         const visible = bookings.filter((b) => !hiddenRef.current.has(b.stylist));
-        setShown(visible);
         success(visible.map(toEvent));
       } catch (err) {
         failure(err as Error);
@@ -277,6 +318,7 @@ export default function AdminCalendar({ stylists }: { stylists: string[] }) {
   );
 
   const stats = useMemo(() => {
+    const shown = statsBookings.filter((b) => !hidden.has(b.stylist));
     const active = shown.filter((b) => b.status !== "cancelled");
     return {
       total: active.length,
@@ -284,7 +326,8 @@ export default function AdminCalendar({ stylists }: { stylists: string[] }) {
       confirmed: shown.filter((b) => b.status === "confirmed" || b.status === "completed").length,
       revenue: active.reduce((sum, b) => sum + b.price, 0),
     };
-  }, [shown]);
+  }, [statsBookings, hidden]);
+  const periodHint = PERIODS.find((p) => p.id === statsPeriod)!.hint;
 
   function onDatesSet(arg: DatesSetArg) {
     setPeriod(arg.view.title);
@@ -388,7 +431,7 @@ export default function AdminCalendar({ stylists }: { stylists: string[] }) {
             </div>
           </div>
           <div className={styles.heroActions}>
-            <button className={`${styles.heroBtn} ${styles.heroBtnPrimary}`} onClick={() => newBooking()}>
+            <button className={`${styles.heroBtn} ${styles.heroBtnPrimary}`} onClick={() => newBooking()} aria-label="New booking">
               {Icon.plus}
               <span>New booking</span>
             </button>
@@ -405,11 +448,27 @@ export default function AdminCalendar({ stylists }: { stylists: string[] }) {
       </header>
 
       <div className={styles.shell}>
+        <div className={styles.periodBar}>
+          <span>Summary for</span>
+          <div className={styles.periodSwitch} role="tablist">
+            {PERIODS.map((p) => (
+              <button
+                key={p.id}
+                role="tab"
+                aria-selected={statsPeriod === p.id}
+                className={statsPeriod === p.id ? styles.periodOn : ""}
+                onClick={() => setStatsPeriod(p.id)}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        </div>
         <section className={styles.stats}>
           <div className={styles.stat}>
             <div className={styles.statLabel}>Bookings</div>
             <div className={styles.statValue}>{stats.total}</div>
-            <div className={styles.statHint}>in this view</div>
+            <div className={styles.statHint}>{periodHint}</div>
           </div>
           <div className={`${styles.stat} ${stats.pending ? styles.statAccent : ""}`}>
             <div className={styles.statLabel}>To confirm</div>
@@ -422,7 +481,7 @@ export default function AdminCalendar({ stylists }: { stylists: string[] }) {
             <div className={styles.statHint}>ready to go</div>
           </div>
           <div className={styles.stat}>
-            <div className={styles.statLabel}>Expected</div>
+            <div className={styles.statLabel}>{statsPeriod === "all" ? "Total value" : "Expected"}</div>
             <div className={styles.statValue}>QAR {stats.revenue.toLocaleString()}</div>
             <div className={styles.statHint}>excluding cancelled</div>
           </div>
