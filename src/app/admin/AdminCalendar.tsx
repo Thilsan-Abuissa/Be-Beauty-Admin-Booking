@@ -11,6 +11,7 @@ import listPlugin from "@fullcalendar/list";
 import interactionPlugin from "@fullcalendar/interaction";
 import type {
   DatesSetArg,
+  DayHeaderContentArg,
   EventClickArg,
   EventContentArg,
   EventDropArg,
@@ -87,12 +88,18 @@ function renderEvent(arg: EventContentArg) {
   const b = arg.event.extendedProps.booking as Booking;
   const style = { "--c": stylistColor(b.stylist) } as CSSProperties;
   const statusClass = styles[`status_${b.status}`];
+  const pending = b.status === "pending" && <span className={styles.pendingTag}>To confirm</span>;
   if (arg.view.type.startsWith("timeGrid")) {
     return (
-      <div className={`${styles.event} ${statusClass}`} style={style}>
-        <div className={styles.eventName}>{b.customer_name}</div>
+      <div className={`${styles.event} ${statusClass}`} style={style} title={`${b.customer_name} · ${b.service} · ${b.stylist}`}>
+        <div className={styles.eventTop}>
+          <span className={styles.eventAvatar}>{initial(b.stylist)}</span>
+          <span className={styles.eventName}>{b.customer_name}</span>
+        </div>
         <div className={styles.eventTime}>{arg.timeText}</div>
-        <div className={styles.eventService}>{b.service}</div>
+        {/* Short bookings only have room for the name and time. */}
+        {b.duration_min >= 60 && <div className={styles.eventService}>{b.service}</div>}
+        {b.duration_min >= 90 && pending}
       </div>
     );
   }
@@ -104,6 +111,18 @@ function renderEvent(arg: EventContentArg) {
       <span className={styles.eventService}>
         {b.service} · {b.stylist}
       </span>
+      {pending}
+    </div>
+  );
+}
+
+function renderDayHeader(arg: DayHeaderContentArg) {
+  if (!arg.view.type.startsWith("timeGrid")) return arg.text;
+  const cls = [styles.dayHead, arg.isToday && styles.dayToday, arg.isPast && styles.dayPast].filter(Boolean).join(" ");
+  return (
+    <div className={cls}>
+      <span className={styles.dayName}>{arg.date.toLocaleDateString("en-GB", { weekday: "short" })}</span>
+      <span className={styles.dayNum}>{arg.date.getDate()}</span>
     </div>
   );
 }
@@ -422,11 +441,9 @@ export default function AdminCalendar({ stylists }: { stylists: string[] }) {
             nowIndicator
             height="auto"
             firstDay={6}
-            dayHeaderContent={(arg) =>
-              arg.view.type.startsWith("list")
-                ? arg.text
-                : `${arg.date.toLocaleDateString("en-GB", { weekday: "short" })} ${arg.date.getDate()}`
-            }
+            dayHeaderContent={renderDayHeader}
+            slotLabelFormat={{ hour: "numeric", meridiem: "short" }}
+            scrollTime="10:00:00"
             eventTimeFormat={{ hour: "numeric", minute: "2-digit", meridiem: "short" }}
             noEventsContent="No bookings in this period"
           />
