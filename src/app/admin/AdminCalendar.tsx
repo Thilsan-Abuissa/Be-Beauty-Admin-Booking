@@ -9,6 +9,7 @@ import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import listPlugin from "@fullcalendar/list";
 import interactionPlugin from "@fullcalendar/interaction";
+import type { DateClickArg } from "@fullcalendar/interaction";
 import type {
   DatesSetArg,
   DayHeaderContentArg,
@@ -20,6 +21,7 @@ import type {
 } from "@fullcalendar/core";
 import type { Booking, BookingStatus } from "@/lib/db";
 import styles from "./admin.module.css";
+import NewBooking, { type NewBookingDraft } from "./NewBooking";
 
 const STYLIST_COLORS: Record<string, string> = {
   Amal: "#b45c50",
@@ -188,6 +190,11 @@ const Icon = {
       <path d="M21 3v5h-5" />
     </svg>
   ),
+  plus: (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  ),
   logout: (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
       <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
@@ -223,6 +230,7 @@ export default function AdminCalendar({ stylists }: { stylists: string[] }) {
   const [toast, setToast] = useState("");
   const [shown, setShown] = useState<Booking[]>([]);
   const [period, setPeriod] = useState("");
+  const [draft, setDraft] = useState<NewBookingDraft | null>(null);
   const isMobile = useSyncExternalStore(
     subscribeMobile,
     () => window.matchMedia(MOBILE_QUERY).matches,
@@ -280,6 +288,23 @@ export default function AdminCalendar({ stylists }: { stylists: string[] }) {
 
   function onDatesSet(arg: DatesSetArg) {
     setPeriod(arg.view.title);
+  }
+
+  function newBooking(date = new Date(), withTime = false) {
+    setSelected(null);
+    setDraft({ date: localDate(date), time: withTime ? localTime(date) : "10:00" });
+  }
+
+  // Clicking an empty spot on the calendar starts a booking at that day and time.
+  function onDateClick(arg: DateClickArg) {
+    newBooking(arg.date, !arg.allDay);
+  }
+
+  function onBookingAdded(booking: Booking) {
+    setDraft(null);
+    showToast(`Booking added for ${booking.customer_name}`);
+    calendarRef.current?.getApi().gotoDate(booking.booking_date);
+    refetch();
   }
 
   function openBooking(arg: EventClickArg) {
@@ -363,6 +388,10 @@ export default function AdminCalendar({ stylists }: { stylists: string[] }) {
             </div>
           </div>
           <div className={styles.heroActions}>
+            <button className={`${styles.heroBtn} ${styles.heroBtnPrimary}`} onClick={() => newBooking()}>
+              {Icon.plus}
+              <span>New booking</span>
+            </button>
             <button className={styles.heroBtn} onClick={refetch} aria-label="Refresh">
               {Icon.refresh}
               <span>Refresh</span>
@@ -432,6 +461,7 @@ export default function AdminCalendar({ stylists }: { stylists: string[] }) {
             eventContent={renderEvent}
             datesSet={onDatesSet}
             eventClick={openBooking}
+            dateClick={onDateClick}
             editable
             eventDurationEditable={false}
             eventDrop={onDrop}
@@ -572,6 +602,10 @@ export default function AdminCalendar({ stylists }: { stylists: string[] }) {
             </div>
           </aside>
         </div>
+      )}
+
+      {draft && (
+        <NewBooking draft={draft} colors={STYLIST_COLORS} onClose={() => setDraft(null)} onSaved={onBookingAdded} />
       )}
 
       {toast && <div className={styles.toast}>{toast}</div>}

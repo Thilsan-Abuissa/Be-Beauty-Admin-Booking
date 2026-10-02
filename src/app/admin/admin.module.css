@@ -310,3 +310,36 @@
   .calendarCard :global(.fc .fc-toolbar-title) { font-size: 15px; }
   .calendarCard :global(.fc .fc-button-group:has(.fc-dayGridMonth-button, .fc-listWeek-button) > .fc-button) { padding: 5px 12px; }
 }
+
+/* ---------- New booking form ---------- */
+.heroBtnPrimary { background: var(--ivory); color: var(--rose-dark); border-color: var(--ivory); font-weight: 600; }
+.heroBtnPrimary:hover { background: var(--white); }
+.formGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.field { display: grid; gap: 6px; font-size: 13px; font-weight: 500; color: var(--plum-soft); align-content: start; }
+.optional { font-weight: 400; font-size: 12px; opacity: 0.7; }
+.field select {
+  font: inherit; width: 100%; border: 1px solid var(--line); border-radius: 12px; padding: 11px 12px;
+  background: var(--white); color: var(--plum); appearance: auto;
+}
+.field select:focus { outline: 2px solid var(--rose); outline-offset: 1px; }
+.choiceRow { display: flex; flex-wrap: wrap; gap: 8px; }
+.choice {
+  border: 1px solid var(--line); background: var(--white); color: var(--plum);
+  border-radius: 999px; padding: 8px 14px; font-size: 13px; font-weight: 500;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+.choice:hover { border-color: var(--rose); }
+.choiceOn { background: var(--c, var(--rose-deep)); border-color: var(--c, var(--rose-deep)); color: var(--white); }
+.choiceOn:hover { border-color: var(--c, var(--rose-deep)); }
+.summary {
+  display: flex; justify-content: space-between; align-items: center;
+  background: var(--ivory); border-radius: 14px; padding: 12px 14px; font-size: 13px; color: var(--plum-soft);
+}
+.formError { background: #fbeceb; color: var(--rose-dark); border-radius: 12px; padding: 10px 14px; font-size: 13px; }
+.calendarCard :global(.fc .fc-timegrid-slot-lane) { cursor: pointer; }
+.calendarCard :global(.fc .fc-timegrid-slot-lane:hover) { background: rgba(246, 226, 221, 0.35); }
+
+@media (max-width: 720px) {
+  .formGrid { grid-template-columns: 1fr; }
+  .heroBtnPrimary span { display: inline !important; }
+}
