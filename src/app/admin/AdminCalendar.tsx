@@ -40,11 +40,60 @@ const STATUS_LABELS: Record<BookingStatus, string> = {
 const REFRESH_MS = 60_000;
 
 type StatsPeriod = "today" | "week" | "month" | "all";
-const PERIODS: { id: StatsPeriod; label: string; hint: string }[] = [
-  { id: "today", label: "Today", hint: "today" },
-  { id: "week", label: "This week", hint: "this week" },
-  { id: "month", label: "This month", hint: "this month" },
-  { id: "all", label: "All", hint: "all time" },
+const svgProps = {
+  viewBox: "0 0 24 24",
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.9,
+  strokeLinecap: "round",
+  strokeLinejoin: "round",
+} as const;
+
+const PERIODS: { id: StatsPeriod; label: string; hint: string; icon: ReactNode }[] = [
+  {
+    id: "today",
+    label: "Today",
+    hint: "today",
+    icon: (
+      <svg {...svgProps}>
+        <circle cx="12" cy="12" r="4" />
+        <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+      </svg>
+    ),
+  },
+  {
+    id: "week",
+    label: "This week",
+    hint: "this week",
+    icon: (
+      <svg {...svgProps}>
+        <rect x="3" y="4" width="18" height="17" rx="2" />
+        <path d="M16 2v4M8 2v4M3 10h18M7 15h10" />
+      </svg>
+    ),
+  },
+  {
+    id: "month",
+    label: "This month",
+    hint: "this month",
+    icon: (
+      <svg {...svgProps}>
+        <rect x="3" y="4" width="18" height="17" rx="2" />
+        <path d="M16 2v4M8 2v4M3 10h18M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01M16 18h.01" />
+      </svg>
+    ),
+  },
+  {
+    id: "all",
+    label: "All",
+    hint: "all time",
+    icon: (
+      <svg {...svgProps}>
+        <path d="M12 2l9 5-9 5-9-5 9-5z" />
+        <path d="M3 12l9 5 9-5M3 17l9 5 9-5" />
+      </svg>
+    ),
+  },
 ];
 
 // [start, end) dates for the summary cards. Weeks start on Saturday, like the calendar.
@@ -449,8 +498,7 @@ export default function AdminCalendar({ stylists }: { stylists: string[] }) {
 
       <div className={styles.shell}>
         <div className={styles.periodBar}>
-          <span>Summary for</span>
-          <div className={styles.periodSwitch} role="tablist">
+          <div className={styles.periodSwitch} role="tablist" aria-label="Summary period">
             {PERIODS.map((p) => (
               <button
                 key={p.id}
@@ -459,7 +507,8 @@ export default function AdminCalendar({ stylists }: { stylists: string[] }) {
                 className={statsPeriod === p.id ? styles.periodOn : ""}
                 onClick={() => setStatsPeriod(p.id)}
               >
-                {p.label}
+                {p.icon}
+                <span>{p.label}</span>
               </button>
             ))}
           </div>
