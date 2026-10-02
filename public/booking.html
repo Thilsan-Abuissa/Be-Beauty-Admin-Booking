@@ -786,7 +786,7 @@
     dayChips.appendChild(el);
   }
   dayChips.addEventListener('click', e=>{
-    const c = e.target.closest('.chip'); if(!c) return;
+    const c = e.target.closest('.chip'); if(!c || c.classList.contains('taken')) return;
     dayChips.querySelectorAll('.chip').forEach(o=>o.classList.remove('selected'));
     c.classList.add('selected');
     state.day = c.dataset.value;
@@ -829,18 +829,55 @@
     }catch(e){ /* availability is a nicety; the server still blocks double bookings */ }
   }
 
+  // Salon clock (Qatar), so "today" and "now" match the server whatever the visitor's device says.
+  const SALON_TZ = 'Asia/Qatar';
+  const MIN_NOTICE_MIN = 30; // same-day bookings need this much notice; keep in sync with src/lib/dates.ts
+  function salonNow(){
+    const p = {};
+    new Intl.DateTimeFormat('en-CA', { timeZone: SALON_TZ, year:'numeric', month:'2-digit', day:'2-digit',
+      hour:'2-digit', minute:'2-digit', hourCycle:'h23' }).formatToParts(new Date()).forEach(x=>{ p[x.type] = x.value; });
+    return { date: p.year + '-' + p.month + '-' + p.day, minutes: Number(p.hour) * 60 + Number(p.minute) };
+  }
+  function slotMinutes(label){
+    const [h, m] = to24h(label).split(':').map(Number);
+    return h * 60 + m;
+  }
+  function isPast(date, label){
+    const now = salonNow();
+    return date === now.date && slotMinutes(label) < now.minutes + MIN_NOTICE_MIN;
+  }
+
   function markTakenTimes(){
     const taken = (state.stylist && takenSlots[state.stylist]) || [];
     timeChips.querySelectorAll('.chip').forEach(chip=>{
-      const isTaken = taken.includes(to24h(chip.dataset.value));
+      const past = !!state.date && isPast(state.date, chip.dataset.value);
+      const isTaken = past || taken.includes(to24h(chip.dataset.value));
       chip.classList.toggle('taken', isTaken);
-      chip.title = isTaken ? 'Already booked' : '';
+      chip.title = past ? 'This time has passed' : isTaken ? 'Already booked' : '';
       if(isTaken && chip.classList.contains('selected')){
         chip.classList.remove('selected');
         state.time = null;
       }
     });
+    markClosedDays();
   }
+
+  // Once every time slot today has passed, "Today" can't be booked any more.
+  function markClosedDays(){
+    const labels = [...timeChips.querySelectorAll('.chip')].map(c=>c.dataset.value);
+    dayChips.querySelectorAll('.chip').forEach(chip=>{
+      const closed = labels.every(l=>isPast(chip.dataset.date, l));
+      chip.classList.toggle('taken', closed);
+      chip.title = closed ? 'No times left today' : '';
+      if(closed && chip.classList.contains('selected')){
+        chip.classList.remove('selected');
+        state.date = null; state.day = null; state.time = null;
+        timeChips.querySelectorAll('.chip').forEach(c=>{ c.classList.remove('taken','selected'); c.title=''; });
+      }
+    });
+  }
+  markClosedDays();
+  setInterval(markTakenTimes, 60000);
 
   const errorEl = document.getElementById('pError');
   function showError(msg){

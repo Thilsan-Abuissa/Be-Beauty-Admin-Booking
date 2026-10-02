@@ -1,7 +1,7 @@
 import { BOOKING_COLUMNS, db } from "@/lib/db";
 import { isAdmin } from "@/lib/auth";
 import { BOOKING_WINDOW_DAYS, SERVICES, STYLISTS, TIME_SLOTS } from "@/lib/catalog";
-import { addDays, salonToday } from "@/lib/dates";
+import { addDays, isTooSoon, salonToday } from "@/lib/dates";
 import { DATE_RE, isUniqueViolation, json, unauthorized } from "@/lib/http";
 
 // Public: the booking page posts here.
@@ -24,6 +24,9 @@ export async function POST(request: Request) {
   const today = salonToday();
   if (!DATE_RE.test(date) || date < today || date > addDays(today, BOOKING_WINDOW_DAYS)) {
     return json({ error: "Please choose a valid date." }, 400);
+  }
+  if (isTooSoon(date, time)) {
+    return json({ error: "That time has already passed for today. Please pick a later time or another day." }, 400);
   }
   if (name.length < 2 || name.length > 80) return json({ error: "Please enter your full name." }, 400);
   if (!/^\+?[\d\s-]{7,20}$/.test(phone)) return json({ error: "Please enter a valid mobile number." }, 400);
