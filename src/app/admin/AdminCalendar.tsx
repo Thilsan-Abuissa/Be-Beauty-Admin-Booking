@@ -292,7 +292,7 @@ export default function AdminCalendar({ stylists }: { stylists: string[] }) {
 
   function newBooking(date = new Date(), withTime = false) {
     setSelected(null);
-    setDraft({ date: localDate(date), time: withTime ? localTime(date) : "10:00" });
+    setDraft({ date: localDate(date), time: withTime ? localTime(date) : null });
   }
 
   // Clicking an empty spot on the calendar starts a booking at that day and time.

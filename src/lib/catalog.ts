@@ -23,3 +23,14 @@ export const STYLISTS = ["No preference", "Amal", "Fathima", "Reem"];
 export const TIME_SLOTS = ["10:00", "12:30", "15:00", "17:30", "19:00"];
 
 export const BOOKING_WINDOW_DAYS = 30;
+
+// Same grouping as the tabs on public/booking.html.
+export const CATEGORIES: { name: string; services: string[] }[] = [
+  { name: "Hair", services: ["Classic Haircut & Style", "Full Colour", "Keratin Smoothing", "Bridal Hair Styling"] },
+  {
+    name: "Lashes & Brows",
+    services: ["Classic Lash Extensions", "Volume Lash Extensions", "Lash Refill (within 3 weeks)", "Brow Lamination & Tint"],
+  },
+  { name: "Nails", services: ["Gel Manicure", "Gel Pedicure", "Hand-painted Nail Art (add-on)"] },
+  { name: "Facials & Skin", services: ["HydraFacial", "LED Light Therapy Facial", "Deep Cleanse Facial"] },
+];
